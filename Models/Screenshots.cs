@@ -18,7 +18,7 @@ namespace ScreenTracker1.Models
         public string minuteActivityData { get; set; }
     
    
-   
+        public string FullImageUrl => $"{App.ImgURL}{imageUrl}";
 
 
 
