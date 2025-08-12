@@ -1,0 +1,233 @@
+﻿@page "/"
+@page "/login"
+@using ScreenTracker1.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using ScreenTracker1.Services
+@using System.IdentityModel.Tokens.Jwt
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject AppUsageTracker AppUsageTracker
+@inject DesktopAutoCaptureService desktopAutoCaptureService
+@inject AfkTrackerService afkTrackerService
+
+
+@inject LoginService LoginService
+
+<div class="login-container">
+    <div class="left-panel">
+        <div class="img-wrapper">
+            @* <img src="https://aassurecomply.com/wp-content/uploads/2024/12/dark-logo-4.svg" 
+                 alt="Logo"
+                 width="170"
+                 height="100"
+                 class="logo-img" /> *@
+        </div>
+      @*   <div class="hero-banner">
+            <div class="banner-text">
+                <h5>Transform Your Invoicing Process with Ease</h5>
+                <p>Experience seamless, automated e-invoicing that boosts efficiency and ensures compliance globally</p>
+            </div>
+        </div> *@
+    </div>
+
+    <div class="right-panel">
+        <div class="form-container">
+            <h2 class="text-center mb-4">Login</h2>
+            <h5 class="mb-5 text-center">
+                Don't have an account? <a href="/register">Create Account</a>
+            </h5>
+
+            <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-group">
+                    <label>UserName</label>
+                    <InputText @bind-Value="loginModel.username" type="text" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <InputText @bind-Value="loginModel.password" type="password" class="input" />
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="submit-btn">Login</button>
+                </div>
+
+              @*   <div class="form-group">
+                    <a href="/forgotpassword">Forgot Password</a>
+                </div> *@
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <p class="message">@message</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string message;
+    int uid;
+    private async Task HandleLogin()
+    {
+        try
+        {
+            var result = await LoginService.LoginAsync(loginModel);
+            if (result.Contains("Invalid credentials"))
+            {
+                message = result;
+                return;
+            }
+            if (result.Contains("Error"))
+            {
+                message = result;
+                return;
+            }
+            message = "Login successful!";
+            string token = null;
+            if (token == null)
+                token = result;
+
+            Preferences.Set("authToken", token);
+
+            AppUsageTracker.Start();
+            desktopAutoCaptureService.Start();
+            var handler = new JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+            if (jwtToken != null)
+            {
+                var userIdClaim = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+                if (int.TryParse(userIdClaim, out int userId))
+                {
+                    uid = userId;
+
+                }
+            }
+            afkTrackerService.Start( uid);
+
+            NavigationManager.NavigateTo("/users");
+        }
+        catch (Exception ex)
+        {
+            message = "Invalid Id or Password";
+        }
+    }
+
+
+}
+
+<style>
+    .login-container {
+        display: flex;
+        flex-wrap: wrap;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .left-panel {
+        flex: 1;
+        background: url('https://png.pngtree.com/thumb_back/fh260/background/20240528/pngtree-background-of-monitor-computer-with-online-game-streaming-desktop-image_15734081.jpg') no-repeat center;
+        background-size: cover;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        color: white;
+        min-height: 100vh;
+    }
+
+    .img-wrapper {
+        text-align: left;
+    }
+
+    .logo-img {
+        max-width: 170px;
+        height: auto;
+    }
+
+    .hero-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .banner-text h5 {                                              
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .banner-text p {
+        font-size: 16px;
+        margin-top: 10px;
+    }
+
+    .right-panel {
+        flex: 1;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        overflow-y: auto;
+    }
+
+    .form-container {
+        width: 100%;
+        max-width: 500px;
+        background: #f9f9f9;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    label {
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #333;
+    }
+
+    .input {
+        padding: 10px;
+        font-size: 15px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        width: 100%;
+    }
+    a{
+        color:blue;
+    }
+
+    .submit-btn {
+        width: 100%;
+        background-color: #2978a0;
+        color: white;
+        font-size: 16px;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+
+    .submit-btn:hover {
+        background-color: #155d7a;
+    }
+
+    .message {
+        text-align: center;
+        margin-top: 15px;
+        color: green;
+    }
+
+ </style>

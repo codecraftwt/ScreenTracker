@@ -1,0 +1,110 @@
+﻿@page "/screenshot-details/{ImageId:int}"
+@using ScreenTracker1.Models
+@using ScreenTracker1.Services
+@using System.Text.Json
+@inject KeyboardMouseService KeyboardMouseService
+@inject NavigationManager NavigationManager
+
+@if (screenshots == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div>
+        <button @onclick="BackToScreenshots" class="btn btn-secondary mb-3">Back to Screenshots</button>
+
+        <p><strong>Total Keyboard Clicks:</strong> @screenshots.keyboardClicks</p>
+        <p><strong>Total Mouse Clicks:</strong> @screenshots.mouseClicks</p>
+
+        <h4>Activity Details</h4>
+        @if (minuteActivity != null && minuteActivity.Any())
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Keyboard</th>
+                        <th>Mouse</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in minuteActivity.OrderBy(e => e.Value.Timestamp))
+                    {
+                        <tr>
+                            <td>@FormatTimestamp(entry.Value.Timestamp)</td>
+                            <td>@entry.Value.Keyboard</td>
+                            <td>@entry.Value.Mouse</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p>No detailed activity data available.</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int ImageId { get; set; }
+
+    private Screenshots screenshots;
+    private Dictionary<string, MinuteActivity> minuteActivity;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadImageData();
+    }
+
+    private async Task LoadImageData()
+    {
+        // Fetch data using the service
+        screenshots = await KeyboardMouseService.GetImageActivityDataAsync(ImageId);
+
+        if (screenshots != null && !string.IsNullOrWhiteSpace(screenshots.minuteActivityData))
+        {
+            try
+            {
+                // Deserialize the minuteActivityData
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                minuteActivity = JsonSerializer.Deserialize<Dictionary<string, MinuteActivity>>(screenshots.minuteActivityData, options);
+
+                // Debugging output
+                Console.WriteLine("Deserialized Data:");
+                foreach (var entry in minuteActivity)
+                {
+                    Console.WriteLine($"Minute: {entry.Key}, Keyboard: {entry.Value.Keyboard}, Mouse: {entry.Value.Mouse}, Timestamp: {entry.Value.Timestamp}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deserializing minuteActivityData: {ex.Message}");
+                minuteActivity = null;
+            }
+        }
+    }
+
+    private void BackToScreenshots()
+    {
+        NavigationManager.NavigateTo("/screenshots");
+    }
+
+    private string FormatTimestamp(DateTime? timestamp)
+    {
+        if (timestamp.HasValue)
+        {
+            // Convert to local time and format as 12-hour clock with AM/PM
+            return timestamp.Value.ToLocalTime().ToString("h:mm:ss tt");  // 'h' for 12-hour clock, 'tt' for AM/PM
+        }
+        return "N/A";  // Fallback if Timestamp is null
+    }
+
+
+
+
+}
+
+
+

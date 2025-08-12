@@ -1,0 +1,41 @@
+﻿@* @page "/tracker"
+@using ScreenTracker1.Services
+@inject AppUsageTracker AppTracker
+
+<h3 class="text-xl font-bold mb-4">Screen Tracker</h3>
+
+<table class="table table-zebra w-full text-sm border">
+    <thead class="bg-gray-200">
+        <tr>
+            <th>App Name</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Total Time</th>
+
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var app in AppTracker.AppHistory)
+        {
+            <tr>
+                <td>@app.AppName</td>
+                <td>@app.StartTime.ToLongTimeString()</td>
+                <td>@(app.EndTime?.ToLongTimeString() ?? "Running...")</td>
+                <td>@app.TotalTime.ToString(@"hh\:mm\:ss")</td>
+
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AppTracker.OnAppListChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        AppTracker.OnAppListChanged -= StateHasChanged;
+    }
+} *@

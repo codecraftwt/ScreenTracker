@@ -1,0 +1,257 @@
+﻿@page "/register"
+
+@using ScreenTracker1.Models
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager NavigationManager             
+@using ScreenTracker1.Services
+@inject RegisterService RegisterService
+
+<h3 class="text-center mt-4">Register</h3>
+
+<div class="register-container">
+    <div class="left-panel">
+        <div class="img-wrapper">
+            <img src="https://aassurecomply.com/wp-content/uploads/2024/12/dark-logo-4.svg"
+                 alt="Logo"
+                 width="170"
+                 height="100"
+                 class="logo-img" />
+        </div>
+        <div class="hero-banner">
+            <div class="banner-text">
+                <h5>Transform Your Invoicing Process with Ease</h5>
+                <p>Experience seamless, automated e-invoicing that boosts efficiency and ensures compliance globally</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="form-container">
+            <h2 class="text-center mb-4">Create New Account</h2>
+
+            <div class="text-center mt-3">
+                <small>Already a member? <a @onclick="NavigateToLogin" class="link-button">Sign In</a></small>
+            </div>
+
+
+            <EditForm Model="@registerModel" OnValidSubmit="@HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-group">
+                    <label>User Name</label>
+                    <InputText @bind-Value="registerModel.username" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>First Name</label>
+                    <InputText @bind-Value="registerModel.firstName" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <InputText @bind-Value="registerModel.lastName" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <InputText @bind-Value="registerModel.email" type="email" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <InputText @bind-Value="registerModel.Password" type="password" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Role</label>
+                    <InputSelect @bind-Value="registerModel.role" class="input">
+                        <option value="">Select Role</option>
+                        <option value="Admin">Admin</option>
+                        <option value="User">User</option>
+                    </InputSelect>
+                </div>
+
+                <div class="form-group">
+                    <label>Phone Number (Optional)</label>
+                    <InputText @bind-Value="registerModel.phoneNumber" class="input" />
+                </div>
+
+                <button type="submit" class="submit-btn">Register</button>
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(message))
+            {
+                <p class="message">@message</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string message;
+    private bool isLoading = false;
+
+  
+
+    private async Task NavigateToLogin()
+    {
+      
+        NavigationManager.NavigateTo("/login");
+    }
+
+
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+           
+            var result = await RegisterService.RegisterAsync(registerModel);
+
+       
+            if (result == "Registration successful")
+            {
+                message = result;
+                NavigationManager.NavigateTo("/login"); 
+            }
+            else
+            {
+                message = result; 
+            }
+        }
+        catch (Exception ex)
+        {
+          
+            message = $"An error occurred: {ex.Message}";
+        }
+    }
+
+}
+
+<style>
+    
+    .register-container {
+        display: flex;
+        flex-wrap: wrap;
+        height: 100vh;
+       /*  overflow: hidden; */
+    }
+
+    .left-panel {
+        flex: 1;
+        background: url('https://aassurecomply.com/wp-content/uploads/2024/12/Heading-3.png') no-repeat center;
+        background-size: cover;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 20px;
+        color: white;
+        min-height: 100vh;
+    }
+
+    .img-wrapper {
+        text-align: left;
+    }
+
+    .logo-img {
+        max-width: 170px;
+        height: auto;
+    }
+
+    .hero-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .banner-text h5 {
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .banner-text p {
+        font-size: 16px;
+        margin-top: 10px;
+    }
+
+    .right-panel {
+        flex: 1;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        overflow-y: auto;
+    }
+
+    .form-container {
+        width: 100%;
+        max-width: 500px;
+        background: #f9f9f9;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    label {
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #333;
+    }
+
+    .input {
+        padding: 10px;
+        font-size: 15px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        width: 100%;
+    }
+
+    .submit-btn {
+        width: 100%;
+        background-color: #2978a0;
+        color: white;
+        font-size: 16px;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+
+        .submit-btn:hover {
+            background-color: #155d7a;
+        }
+
+    .message {
+        text-align: center;
+        margin-top: 15px;
+        color: green;
+    }
+
+    .link-button {
+        background: none;
+        border: none;
+        color: #2978a0;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+        .link-button:hover {
+            color: #155d7a;
+        }
+</style>

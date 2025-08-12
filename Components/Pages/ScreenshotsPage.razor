@@ -1,0 +1,251 @@
+﻿    @page "/screenshots"
+    @inject NavigationManager NavigationManager
+    @inject UserService UserService
+    @using ScreenTracker1.Services
+    @using ScreenTracker1.Models
+    @using Microsoft.JSInterop
+    @using System.IdentityModel.Tokens.Jwt
+    @inject KeyboardMouseService KeyboardMouseService;
+
+    <h3>My Screenshots</h3>
+
+    <div class="container">
+        <div class="d-flex justify-content-between mb-4">
+            <input type="date" class="form-control me-2" value="@selectedDate.ToString("yyyy-MM-dd")" @onchange="OnDateChanged" />
+            <button @onclick="BackClick" class="btn btn-primary">Home</button>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="d-flex justify-content-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        }
+        else if (screenshots != null && screenshots.Any())
+        {
+            <div class="row">
+                @foreach (var screenshot in screenshots)
+                {
+                    <div class="col-md-4 screenshot-item">
+                    <div class="image-container">
+                        <img src="@screenshot.imageUrl"
+                             alt="Screenshot"
+                             class="img-fluid screenshot-image"
+                           
+                             @onclick="() => NavigateToDetailsPage(screenshot.id)" />
+
+                    </div>
+
+                    <label>@screenshot.imageUrl</label>
+
+                        <div class="screenshot-info">
+                            <p>@ConvertToIST(screenshot.captureTime)</p>
+
+                            @{
+                                int activeBlocks = GetActiveBlocks(screenshot);
+                            }
+
+                            @for (int i = 1; i <= 10; i++)
+                            {
+                                bool isActive = i <= activeBlocks;
+                                <span class="block @(isActive ? "active" : "")"></span>
+                            }
+
+                            <p>@CalculateActivityScore(screenshot)%</p>
+
+                            <button @onclick="() => DeleteScreenshot(screenshot.id)" class="delete-btn">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+
+
+    
+            <div class="d-flex justify-content-center mt-4">
+                <button @onclick="PreviousPage" class="btn btn-secondary" disabled="@(!CanGoToPreviousPage)">Previous</button>
+                <span class="mx-3">Page @currentPage</span>
+                <button @onclick="NextPage" class="btn btn-secondary" disabled="@(!CanGoToNextPage)">Next</button>
+            </div>
+        }
+        else
+        {
+            <p class="no-screenshots">No screenshots found for this date.</p>
+        }
+    </div>
+
+    @code {
+        private List<Screenshots> screenshots;
+        private string token;
+        private int userId;
+        private DateTime selectedDate = DateTime.Today;
+        private bool isLoading = false;
+
+   
+        private int skip = 1;
+        private int take = 6;
+        private int currentPage = 1;  
+
+        private bool CanGoToPreviousPage => currentPage > 1;
+        private bool CanGoToNextPage => screenshots != null && screenshots.Count == take; 
+
+
+        protected override async Task OnInitializedAsync()
+        {
+            token = Preferences.Get("authToken", null);
+
+            if (!string.IsNullOrEmpty(token))
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+                if (jwtToken != null)
+                {
+                    var userIdClaim = jwtToken?.Claims.FirstOrDefault(c => c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+                    if (int.TryParse(userIdClaim, out int id))
+                    {
+                        userId = id;
+                        await LoadScreenshotsAsync(userId, selectedDate, skip, take);
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("User not authenticated.");
+            }
+        }
+
+        private void NavigateToDetailsPage(int screenshotId)
+        {
+    
+            NavigationManager.NavigateTo($"/screenshot-details/{screenshotId}");
+        }
+
+        private async Task LoadScreenshotsAsync(int userId, DateTime date, int skip, int take)
+        {
+            isLoading = true;
+
+        
+            var basicScreenshots = await UserService.GetImagesByDateAsync(userId, date, skip, take);
+
+            if (basicScreenshots == null)
+            {
+                screenshots = null;
+                isLoading = false;
+                StateHasChanged();
+                return;
+            }
+
+            screenshots = new List<Screenshots>();
+
+     
+            foreach (var basicShot in basicScreenshots)
+            {
+                var detailedShot = await KeyboardMouseService.GetImageActivityDataAsync(basicShot.id);
+                if (detailedShot != null)
+                {
+                    screenshots.Add(detailedShot);
+                }
+                else
+                {
+              
+                    screenshots.Add(basicShot);
+                }
+            }
+
+            isLoading = false;
+            StateHasChanged();
+        }
+
+
+        private async Task OnDateChanged(ChangeEventArgs e)
+        {
+            selectedDate = DateTime.Parse(e.Value.ToString());
+            currentPage = 1; 
+            skip = 1; 
+            await LoadScreenshotsAsync(userId, selectedDate, skip, take);
+        }
+  
+        private async Task NextPage()
+        {
+            currentPage++;
+            skip++;
+            await LoadScreenshotsAsync(userId, selectedDate, skip, take);
+        }
+
+        private async Task PreviousPage()
+        {
+            if (currentPage > 1)
+            {
+                currentPage--;
+                skip--;
+
+                await LoadScreenshotsAsync(userId, selectedDate, skip, take);
+            }
+        }
+
+        private void BackClick()
+        {
+            NavigationManager.NavigateTo("/users");
+        }
+
+        private async Task DeleteScreenshot(int screenshotId)
+        {
+            bool success = await UserService.DeleteScreenshotAsync(screenshotId);
+
+            if (success)
+            {
+           
+                await LoadScreenshotsAsync(userId, selectedDate, skip, take);
+            }
+            else
+            {
+                Console.WriteLine("Failed to delete screenshot.");
+            }
+        }
+
+
+        private string ConvertToIST(DateTime captureTime)
+            {
+        
+            TimeZoneInfo istZone = TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+            DateTime captureTimeInUTC = DateTime.SpecifyKind(captureTime, DateTimeKind.Utc);
+            DateTime captureTimeInIST = TimeZoneInfo.ConvertTimeFromUtc(captureTimeInUTC, istZone);
+
+            return captureTimeInIST.ToString("hh:mm tt");
+        }
+
+        private int CalculateActivityScore(Screenshots screenshot)
+        {
+            int totalClicks = screenshot.keyboardClicks + screenshot.mouseClicks;
+            int maxPossibleClicks = 400; 
+            int score = (int)((double)totalClicks / maxPossibleClicks * 100);
+
+       
+            return Math.Min(100, Math.Max(0, score));
+        }
+        private string GetActivityColor(int score)
+        {
+            if (score >= 70) return "green";   
+            if (score >= 40) return "orange";  
+            return "red";                      
+        }
+
+        private int GetActiveBlocks(Screenshots screenshot)
+        {
+            int totalClicks = screenshot.keyboardClicks + screenshot.mouseClicks;
+            int maxPossibleClicks = 4000;
+
+          
+            int activeBlocks = (int)Math.Round((double)totalClicks / maxPossibleClicks * 10);
+
+         
+            return Math.Min(10, Math.Max(0, activeBlocks));
+        }
+
+
+    }
